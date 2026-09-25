@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ShoppingBag, Zap, Menu, X, ArrowRight, ShieldCheck, Flame } from 'lucide-react';
 
 const navItems = [
-  { id: 'home', label: 'Home', href: '#home' },
-  { id: 'supplements', label: 'Supplements', href: '#supplements' },
-  { id: 'products', label: 'All Products', href: '#products' },
-  { id: 'deals', label: 'Best Deals', href: '#deals', badge: 'PRO DEALS' },
+  { id: 'supplements', label: 'Supplements', href: '#products' },
+  { id: 'equipment', label: 'Equipment', href: '#products' },
+  { id: 'brands', label: 'Top Brands', href: '#brands' },
+  { id: 'deals', label: 'Best Deals', href: '#deals', badge: 'SALE' },
 ];
 
 export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
@@ -68,21 +68,21 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
           transition={{ type: 'spring', stiffness: 260, damping: 22 }}
           className="w-full max-w-5xl relative flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3 rounded-full backdrop-blur-2xl bg-black/90 border border-white/15 shadow-[0_8px_32px_rgba(0,0,0,0.85)]"
         >
-          {/* Brand Logo with Buildiff Metallic Image */}
-          <a href="#home" className="flex items-center gap-2 sm:gap-3 group shrink-0">
-            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl overflow-hidden border border-white/30 shadow-[0_0_15px_rgba(255,255,255,0.15)] group-hover:border-white transition-all duration-300 group-hover:scale-105 bg-black shrink-0">
+          {/* Brand Logo matching .TITAN aesthetic */}
+          <a href="#home" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden border border-white/20 shadow-[0_0_15px_rgba(255,255,255,0.1)] group-hover:border-[#ccff00] transition-all duration-300 group-hover:scale-105 bg-black shrink-0">
               <img
                 src="/logo.jpg"
                 alt="Buildiff Nutrition"
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="flex flex-col text-left">
-              <span className="font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 text-sm sm:text-lg leading-tight uppercase font-['Syne']">
-                BUILDIFF
+            <div className="flex items-baseline gap-1">
+              <span className="font-black tracking-tight text-white text-base sm:text-xl uppercase font-['Outfit'] flex items-center">
+                <span className="text-[#ccff00] mr-0.5 text-2xl leading-none">.</span>BUILDIFF
               </span>
-              <span className="text-[8px] sm:text-[9px] font-bold tracking-[0.2em] text-slate-400 -mt-0.5 uppercase">
-                NUTRITION
+              <span className="hidden sm:inline-block text-[9px] font-bold tracking-[0.2em] text-slate-400 uppercase">
+                STORE
               </span>
             </div>
           </a>
@@ -101,11 +101,11 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
                   onClick={() => setActiveTab(item.id)}
                   onMouseEnter={() => setHoveredTab(item.id)}
                   className={`relative px-3.5 lg:px-4 py-2 text-xs lg:text-sm font-semibold tracking-wide transition-colors duration-200 z-10 flex items-center gap-1.5 ${
-                    isActive ? 'text-white' : 'text-slate-400 hover:text-slate-100'
+                    isActive ? 'text-black font-bold' : 'text-slate-300 hover:text-white'
                   }`}
                 >
                   {/* Hover Pill Background */}
-                  {hoveredTab === item.id && (
+                  {hoveredTab === item.id && !isActive && (
                     <motion.div
                       layoutId="hover-pill"
                       transition={{ type: 'spring', bounce: 0.2, duration: 0.45 }}
@@ -113,20 +113,20 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
                     />
                   )}
 
-                  {/* Active Indicator Glow Pill */}
+                  {/* Active Indicator Glow Pill (Clean White or Electric Lime) */}
                   {isActive && (
                     <motion.div
                       layoutId="active-pill"
                       transition={{ type: 'spring', bounce: 0.25, duration: 0.55 }}
-                      className="absolute inset-0 bg-gradient-to-r from-white/20 via-slate-300/15 to-white/20 border border-white/40 rounded-full -z-10 shadow-[0_0_20px_rgba(255,255,255,0.25)]"
+                      className="absolute inset-0 bg-white text-black rounded-full -z-10 shadow-[0_0_20px_rgba(255,255,255,0.3)]"
                     />
                   )}
 
                   <span>{item.label}</span>
 
-                  {/* Deal Tag */}
+                  {/* Deal Tag in Electric Lime */}
                   {item.badge && (
-                    <span className="text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full bg-gradient-to-r from-slate-200 to-white text-black shadow-sm">
+                    <span className="text-[9px] uppercase font-black tracking-widest px-2 py-0.5 rounded-full bg-[#ccff00] text-black shadow-[0_0_10px_rgba(204,255,0,0.5)]">
                       {item.badge}
                     </span>
                   )}
@@ -135,13 +135,16 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
             })}
           </div>
 
-          {/* Right Actions: Cart Button & Mobile Toggle */}
+          {/* Right Actions: Free Trial Pill & Cart Button */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Lab Tested Pill (Hidden on mobile) */}
-            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-slate-300 text-xs font-semibold">
-              <Zap className="w-3.5 h-3.5 text-white" />
-              <span>100% Pure Lab Grade</span>
-            </div>
+            {/* Try For Free CTA matching .TITAN header button */}
+            <a
+              href="#deals"
+              className="hidden lg:flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#ccff00] hover:bg-[#b8e600] text-black text-xs font-black tracking-wide uppercase transition-all duration-300 shadow-[0_0_20px_rgba(204,255,0,0.4)] hover:scale-105 cursor-pointer"
+            >
+              <span>Shop Now</span>
+              <span className="text-xs">↗</span>
+            </a>
 
             {/* Cart Icon Button with Micro-interactions */}
             <motion.button
@@ -151,12 +154,12 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
                 setCount((prev) => prev + 1);
                 if (onCartClick) onCartClick();
               }}
-              className="relative p-2 sm:p-2.5 rounded-full bg-neutral-900 border border-white/20 text-slate-200 hover:text-white hover:border-white transition-all shadow-[0_4px_16px_rgba(0,0,0,0.5)] group touch-manipulation"
+              className="relative p-2 sm:p-2.5 rounded-full bg-neutral-900 border border-white/20 text-slate-200 hover:text-white hover:border-[#ccff00] transition-all shadow-[0_4px_16px_rgba(0,0,0,0.5)] group touch-manipulation cursor-pointer"
               aria-label="View Cart"
             >
-              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-rotate-6 text-white" />
+              <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-rotate-6 text-white group-hover:text-[#ccff00]" />
 
-              {/* Cart Counter Bubble */}
+              {/* Cart Counter Bubble (Electric Lime) */}
               <AnimatePresence>
                 {count > 0 && (
                   <motion.span
@@ -165,7 +168,7 @@ export default function CreativeNavbar({ onCartClick, cartCount = 2 }) {
                     animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0 }}
                     transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                    className="absolute -top-1 -right-1 min-w-[18px] sm:min-w-[20px] h-4 sm:h-5 px-1 rounded-full bg-gradient-to-r from-slate-100 to-white text-black text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 border-black shadow-lg"
+                    className="absolute -top-1 -right-1 min-w-[18px] sm:min-w-[20px] h-4 sm:h-5 px-1 rounded-full bg-[#ccff00] text-black text-[10px] sm:text-[11px] font-black flex items-center justify-center border-2 border-black shadow-[0_0_10px_rgba(204,255,0,0.6)]"
                   >
                     {count}
                   </motion.span>

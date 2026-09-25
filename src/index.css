@@ -6,11 +6,20 @@
 
 :root {
   --bg-darkest: #000000;
-  --bg-main: #050505;
-  --text-pure: #ffffff;
-  --text-ivory: #faf5ea;
-  --font-editorial: 'Playfair Display', 'DM Serif Display', 'Bodoni Moda', Georgia, serif;
-  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --bg-main: #ffffff;
+  --text-pure: #000000;
+  --text-ivory: #111111;
+  
+  /* Electric Lime & Minimalist Bento Tokens */
+  --brand-lime: #ccff00;
+  --brand-lime-hover: #b8e600;
+  --brand-lime-glow: rgba(204, 255, 0, 0.35);
+  --brand-dark-card: #141416;
+  --brand-dark-card-hover: #1c1c1f;
+  --brand-light-bg: #f5f5f7;
+
+  --font-editorial: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-main: 'Outfit', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * {
@@ -19,14 +28,19 @@
   box-sizing: border-box;
 }
 
+::selection {
+  background-color: #ccff00;
+  color: #000000;
+}
+
 html, body {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: #ffffff;
+  color: #111111;
   font-family: var(--font-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
 }
 
