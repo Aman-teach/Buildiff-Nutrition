@@ -1,30 +1,20 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, Sparkles, ShieldCheck } from 'lucide-react';
 
 /* =========================================================================
    BUILDIFF MASTER CINEMATIC TIMELINE (EP1 + EP2 + EP3)
    =========================================================================
-   - Total Frames: 707
-     * EP 1: Frames 1 - 300    (Exterior -> Doorway Entrance -> Aisle)
-     * EP 2: Frames 301 - 600  (Deep Vault Walkthrough -> Counter & Shelves)
-     * EP 3: Frames 601 - 707  (Athlete Presentation -> Tub Showcase -> Flex)
-   
-   - Door Rush Pacing:
-     On the very first scroll gesture (progress 0.00 -> 0.025, ~120px scroll),
-     the camera rapidly rushes from Frame 1 to Frame 68 (centered in doorway)!
-   
-   - LERP Easing:
-     Current frame smoothly interpolates toward target frame at 60/120fps.
+   - 707 Lightweight High-Resolution WebP Frames
+   - Guaranteed Frame Painting & Responsive 60/120fps LERP Tracking
    ========================================================================= */
 
 const SEQUENCE_CONFIG = {
   totalFrames: 707,
-  containerHeight: '850vh', // Generous scroll runway for physical, luxurious pacing
-  lerpFactor: 0.086,        // Silky smooth damping without latency
+  containerHeight: '600vh', // Responsive luxurious scroll runway
+  lerpFactor: 0.25,         // Fast, instantaneous, zero-drag tracking
   canvasWidth: 1920,
   canvasHeight: 1080,
-  doorFrame: 68,            // Camera centered in the middle of open entrance doors
 
   stages: [
     {
@@ -34,23 +24,22 @@ const SEQUENCE_CONFIG = {
       title: 'FLAGSHIP STOREFRONT',
       subtitle: 'Buildiff Nutrition Headquarters',
     },
-    // On the first scroll gesture, directly surge straight into the door!
     {
-      progress: 0.025,
+      progress: 0.040,
       frame: 68,
       episode: 'EPISODE 01',
       title: 'THE THRESHOLD',
-      subtitle: 'Camera in Middle of the Door',
+      subtitle: 'Entering The Experience',
     },
     {
-      progress: 0.380,
+      progress: 0.400,
       frame: 300,
       episode: 'EPISODE 01',
       title: 'PERFORMANCE VAULT',
       subtitle: 'Exploring Supplement Aisles',
     },
     {
-      progress: 0.720,
+      progress: 0.740,
       frame: 600,
       episode: 'EPISODE 02',
       title: 'THE FORMULATION DESK',
@@ -73,22 +62,20 @@ const SEQUENCE_CONFIG = {
   ],
 };
 
-// Map any global frame (1 to 707) to its respective episode folder & file
 function getFrameUrl(globalFrame) {
   const g = Math.max(1, Math.min(SEQUENCE_CONFIG.totalFrames, Math.round(globalFrame)));
   if (g <= 300) {
     const local = g;
-    return `/ep1 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.png`;
+    return `/ep1 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.webp`;
   } else if (g <= 600) {
     const local = g - 300;
-    return `/ep2 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.png`;
+    return `/ep2 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.webp`;
   } else {
     const local = g - 600;
-    return `/ep3 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.png`;
+    return `/ep3 buildiff/ezgif-frame-${local.toString().padStart(3, '0')}.webp`;
   }
 }
 
-// Helper: Calculate interpolated frame for any scroll progress (0.0 to 1.0)
 function calculateFrameForProgress(progress, stages) {
   const p = Math.max(0, Math.min(1, progress));
   for (let i = 0; i < stages.length - 1; i++) {
@@ -102,7 +89,6 @@ function calculateFrameForProgress(progress, stages) {
   return stages[stages.length - 1].frame;
 }
 
-// Helper: Get active chapter information based on current frame
 function getActiveStageInfo(currentFrame, stages) {
   let active = stages[0];
   for (let i = 0; i < stages.length; i++) {
@@ -116,126 +102,140 @@ function getActiveStageInfo(currentFrame, stages) {
 export default function SmoothScrollSequence() {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+  const progressBarRef = useRef(null);
+  const frameTextRef = useRef(null);
+  const epTextRef = useRef(null);
   const requestRef = useRef(null);
+  const isLoopRunningRef = useRef(false);
+  const isVisibleRef = useRef(true);
 
   // Animation interpolation state
   const currentFrameRef = useRef(1);
   const targetFrameRef = useRef(1);
-  const lastDrawnFrameRef = useRef(-1);
+  const lastDrawnExactFrameRef = useRef(-1);
 
   // UI state
-  const [scrollProgress, setScrollProgress] = useState(0);
   const [activeStage, setActiveStage] = useState(SEQUENCE_CONFIG.stages[0]);
   const [showProductTag, setShowProductTag] = useState(false);
+  const [showScrollPrompt, setShowScrollPrompt] = useState(true);
+  const [currentEpNumber, setCurrentEpNumber] = useState(1);
 
-  // High-performance image cache
+  // Image cache
   const imagesRef = useRef(new Map());
 
   // -------------------------------------------------------------
-  // 1. DYNAMIC HIGH-PERFORMANCE PRELOADER
+  // 1. FAST ASYNC WEBP PRELOADER
   // -------------------------------------------------------------
-  // Loads priority frames first, then dynamically prefetches a window
-  // around the current frame so RAM stays lean and scrolling stays fluid.
   const loadImage = useCallback((frameIdx) => {
     if (frameIdx < 1 || frameIdx > SEQUENCE_CONFIG.totalFrames) return null;
+    
     if (imagesRef.current.has(frameIdx)) {
       return imagesRef.current.get(frameIdx);
     }
 
     const img = new Image();
+    img.decoding = 'async';
     img.src = getFrameUrl(frameIdx);
     imagesRef.current.set(frameIdx, img);
+    
+    img.onload = () => {
+      // If canvas needs this frame, wake the loop to render it
+      const currentTarget = Math.round(currentFrameRef.current);
+      if (Math.abs(currentTarget - frameIdx) <= 2) {
+        startRenderLoop();
+      }
+    };
+
     return img;
   }, []);
 
-  // Preload immediate critical milestones
-  useEffect(() => {
-    // 1. Initial storefront
-    loadImage(1);
-    // 2. Door entrance frames (rapid first scroll)
-    for (let i = 2; i <= 75; i++) {
+  // Preload frames around a specific frame position
+  const prefetchWindow = useCallback((centerFrame) => {
+    const start = Math.max(1, centerFrame - 30);
+    const end = Math.min(SEQUENCE_CONFIG.totalFrames, centerFrame + 60);
+    for (let i = start; i <= end; i++) {
       loadImage(i);
     }
-    // 3. Episode boundaries for instant handoff
-    loadImage(300);
-    loadImage(301);
-    loadImage(600);
-    loadImage(601);
-    loadImage(707);
+  }, [loadImage]);
 
-    // 4. Background streamer: gradually load the rest without locking the main thread
-    let currentPreloadIdx = 76;
-    let idleHandler;
+  // Eager preloader: streams all 707 frames into memory
+  useEffect(() => {
+    // 1. Load first 80 frames immediately
+    for (let i = 1; i <= 80; i++) {
+      loadImage(i);
+    }
 
-    const preloadChunk = () => {
-      const chunkSize = 8;
-      for (let c = 0; c < chunkSize && currentPreloadIdx <= SEQUENCE_CONFIG.totalFrames; c++) {
-        loadImage(currentPreloadIdx);
-        currentPreloadIdx++;
+    // 2. High-speed progressive preloader in background
+    let nextIdx = 81;
+    let timerId;
+
+    const loadNextBatch = () => {
+      const batchSize = 16;
+      for (let i = 0; i < batchSize && nextIdx <= SEQUENCE_CONFIG.totalFrames; i++) {
+        loadImage(nextIdx++);
       }
-      if (currentPreloadIdx <= SEQUENCE_CONFIG.totalFrames) {
-        idleHandler = window.requestIdleCallback
-          ? window.requestIdleCallback(preloadChunk)
-          : setTimeout(preloadChunk, 40);
-      }
-    };
-
-    idleHandler = window.requestIdleCallback
-      ? window.requestIdleCallback(preloadChunk)
-      : setTimeout(preloadChunk, 150);
-
-    return () => {
-      if (window.cancelIdleCallback && idleHandler) {
-        window.cancelIdleCallback(idleHandler);
-      } else {
-        clearTimeout(idleHandler);
+      if (nextIdx <= SEQUENCE_CONFIG.totalFrames) {
+        timerId = setTimeout(loadNextBatch, 16);
       }
     };
+
+    timerId = setTimeout(loadNextBatch, 80);
+
+    return () => clearTimeout(timerId);
   }, [loadImage]);
 
   // -------------------------------------------------------------
-  // 2. BUTTER-SMOOTH LERP RENDERING LOOP
+  // 2. 60/120 FPS GUARANTEED CANVAS RENDER LOOP
   // -------------------------------------------------------------
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext('2d', { alpha: false });
+  const renderFrameToCanvas = useCallback((context, canvas, targetIdx) => {
+    // 1. Try exact requested frame
+    let img = imagesRef.current.get(targetIdx);
+    if (!img) {
+      img = loadImage(targetIdx);
+    }
 
-    // Set fixed 1080p canvas resolution once
-    canvas.width = SEQUENCE_CONFIG.canvasWidth;
-    canvas.height = SEQUENCE_CONFIG.canvasHeight;
-
-    const renderFrame = (img) => {
-      if (!img || !img.complete || img.naturalWidth === 0) return false;
+    if (img && img.complete && img.naturalWidth > 0) {
       context.drawImage(img, 0, 0, canvas.width, canvas.height);
+      lastDrawnExactFrameRef.current = targetIdx;
       return true;
-    };
+    }
 
-    // Find closest loaded neighbor if target frame is still streaming
-    const findClosestLoadedImg = (targetIdx) => {
-      const direct = imagesRef.current.get(targetIdx);
-      if (direct?.complete && direct?.naturalWidth > 0) return direct;
-
-      // Scan outwards (up to 20 frames away)
-      for (let offset = 1; offset <= 20; offset++) {
-        const lower = targetIdx - offset;
-        const higher = targetIdx + offset;
-        const lowerImg = imagesRef.current.get(lower);
-        if (lowerImg?.complete && lowerImg?.naturalWidth > 0) return lowerImg;
-        const higherImg = imagesRef.current.get(higher);
-        if (higherImg?.complete && higherImg?.naturalWidth > 0) return higherImg;
+    // 2. Nearest loaded fallback (scan outwards up to 60 frames)
+    for (let offset = 1; offset <= 60; offset++) {
+      const lower = imagesRef.current.get(targetIdx - offset);
+      if (lower && lower.complete && lower.naturalWidth > 0) {
+        context.drawImage(lower, 0, 0, canvas.width, canvas.height);
+        return false; // Rendered fallback, exact frame not yet drawn
       }
-      return null;
-    };
+      const higher = imagesRef.current.get(targetIdx + offset);
+      if (higher && higher.complete && higher.naturalWidth > 0) {
+        context.drawImage(higher, 0, 0, canvas.width, canvas.height);
+        return false;
+      }
+    }
+
+    return false;
+  }, [loadImage]);
+
+  const startRenderLoop = useCallback(() => {
+    if (isLoopRunningRef.current || !isVisibleRef.current) return;
+    isLoopRunningRef.current = true;
 
     let lastHudUpdate = 0;
 
-    const animate = () => {
-      // Linear Interpolation (LERP) easing
+    const tick = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || !isVisibleRef.current) {
+        isLoopRunningRef.current = false;
+        return;
+      }
+
+      const context = canvas.getContext('2d', { alpha: false });
       const target = targetFrameRef.current;
       const current = currentFrameRef.current;
       const diff = target - current;
 
+      // Ultra-smooth responsive LERP
       if (Math.abs(diff) > 0.005) {
         currentFrameRef.current += diff * SEQUENCE_CONFIG.lerpFactor;
       } else {
@@ -244,50 +244,59 @@ export default function SmoothScrollSequence() {
 
       const frameToDraw = Math.max(1, Math.min(SEQUENCE_CONFIG.totalFrames, Math.round(currentFrameRef.current)));
 
-      // Dynamic sliding window prefetch: keep 25 frames ahead loaded
-      for (let i = 1; i <= 25; i++) {
-        loadImage(frameToDraw + i);
+      // Render frame
+      renderFrameToCanvas(context, canvas, frameToDraw);
+
+      // Direct DOM update for frame counter
+      if (frameTextRef.current) {
+        frameTextRef.current.textContent = `FRAME ${frameToDraw.toString().padStart(3, '0')}/707`;
       }
 
-      // Draw only when frame changes to preserve GPU cycles
-      if (frameToDraw !== lastDrawnFrameRef.current) {
-        const directImg = imagesRef.current.get(frameToDraw) || loadImage(frameToDraw);
-        let drewSuccessfully = renderFrame(directImg);
-
-        if (!drewSuccessfully) {
-          // Fallback to nearest loaded frame to guarantee ZERO flicker
-          const fallback = findClosestLoadedImg(frameToDraw);
-          if (fallback) {
-            renderFrame(fallback);
-          }
+      // Throttled UI stage updates
+      const now = performance.now();
+      if (now - lastHudUpdate > 50) {
+        const ep = frameToDraw <= 300 ? 1 : frameToDraw <= 600 ? 2 : 3;
+        setCurrentEpNumber(ep);
+        if (epTextRef.current) {
+          epTextRef.current.textContent = `EP 0${ep}`;
         }
 
-        lastDrawnFrameRef.current = frameToDraw;
-
-        // Throttle React state updates
-        const now = performance.now();
-        if (now - lastHudUpdate > 50) {
-          setActiveStage(getActiveStageInfo(frameToDraw, SEQUENCE_CONFIG.stages));
-          setShowProductTag(frameToDraw >= 620 && frameToDraw <= 707);
-          lastHudUpdate = now;
-        }
+        setActiveStage(getActiveStageInfo(frameToDraw, SEQUENCE_CONFIG.stages));
+        setShowProductTag(frameToDraw >= 620 && frameToDraw <= 707);
+        lastHudUpdate = now;
       }
 
-      requestRef.current = requestAnimationFrame(animate);
+      // Loop continues if target not reached OR if exact frame hasn't been painted yet
+      const isSettled = Math.abs(target - currentFrameRef.current) < 0.01 && frameToDraw === lastDrawnExactFrameRef.current;
+
+      if (!isSettled && isVisibleRef.current) {
+        requestRef.current = requestAnimationFrame(tick);
+      } else {
+        isLoopRunningRef.current = false;
+      }
     };
 
-    requestRef.current = requestAnimationFrame(animate);
+    requestRef.current = requestAnimationFrame(tick);
+  }, [renderFrameToCanvas]);
 
-    // Initial render for frame 1
-    const initialImg = loadImage(1);
-    if (initialImg) {
-      if (initialImg.complete) {
-        renderFrame(initialImg);
-        lastDrawnFrameRef.current = 1;
+  // Setup Canvas & Initial Frame 1
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.width = SEQUENCE_CONFIG.canvasWidth;
+    canvas.height = SEQUENCE_CONFIG.canvasHeight;
+    const context = canvas.getContext('2d', { alpha: false });
+
+    const img1 = loadImage(1);
+    if (img1) {
+      if (img1.complete && img1.naturalWidth > 0) {
+        context.drawImage(img1, 0, 0, canvas.width, canvas.height);
+        lastDrawnExactFrameRef.current = 1;
       } else {
-        initialImg.onload = () => {
-          renderFrame(initialImg);
-          lastDrawnFrameRef.current = 1;
+        img1.onload = () => {
+          context.drawImage(img1, 0, 0, canvas.width, canvas.height);
+          lastDrawnExactFrameRef.current = 1;
         };
       }
     }
@@ -298,24 +307,73 @@ export default function SmoothScrollSequence() {
   }, [loadImage]);
 
   // -------------------------------------------------------------
-  // 3. SCROLL PROGRESSION LISTENER
+  // 3. INTERSECTION OBSERVER
   // -------------------------------------------------------------
   useEffect(() => {
-    const handleScroll = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
+    const container = containerRef.current;
+    if (!container) return;
 
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          isVisibleRef.current = entry.isIntersecting;
+          if (entry.isIntersecting) {
+            startRenderLoop();
+          } else {
+            if (requestRef.current) {
+              cancelAnimationFrame(requestRef.current);
+              isLoopRunningRef.current = false;
+            }
+          }
+        });
+      },
+      { rootMargin: '300px 0px 300px 0px' }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [startRenderLoop]);
+
+  // -------------------------------------------------------------
+  // 4. SCROLL PROGRESSION LISTENER
+  // -------------------------------------------------------------
+  useEffect(() => {
+    let lastPrefetchedCenter = 1;
+
+    const handleScroll = () => {
+      if (!containerRef.current || !isVisibleRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
       const scrollDistance = -rect.top;
       const maxScroll = rect.height - window.innerHeight;
 
       if (maxScroll <= 0) return;
 
       const progress = Math.max(0, Math.min(1, scrollDistance / maxScroll));
-      setScrollProgress(progress);
 
-      // Compute frame from structured timeline
+      // Direct GPU Transform for master progress bar
+      if (progressBarRef.current) {
+        progressBarRef.current.style.transform = `scaleX(${progress})`;
+      }
+
+      if (progress > 0.015 && showScrollPrompt) {
+        setShowScrollPrompt(false);
+      } else if (progress <= 0.005 && !showScrollPrompt) {
+        setShowScrollPrompt(true);
+      }
+
+      // Compute frame target
       const mappedFrame = calculateFrameForProgress(progress, SEQUENCE_CONFIG.stages);
       targetFrameRef.current = mappedFrame;
+
+      // Prefetch upcoming frames
+      const roundedTarget = Math.round(mappedFrame);
+      if (Math.abs(roundedTarget - lastPrefetchedCenter) >= 3) {
+        prefetchWindow(roundedTarget);
+        lastPrefetchedCenter = roundedTarget;
+      }
+
+      // Wake render loop
+      startRenderLoop();
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -324,19 +382,15 @@ export default function SmoothScrollSequence() {
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, []);
+  }, [prefetchWindow, startRenderLoop, showScrollPrompt]);
 
-  // Quick skip function to enter the store directly
+  // Fast skip to store
   const handleSkipToStore = () => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const targetScrollY = window.scrollY + rect.bottom - window.innerHeight;
+    const targetScrollY = window.scrollY + rect.bottom - window.innerHeight + 10;
     window.scrollTo({ top: targetScrollY, behavior: 'smooth' });
   };
-
-  // Determine which episode badge is active
-  const currentGlobalFrame = Math.round(currentFrameRef.current);
-  const currentEpNumber = currentGlobalFrame <= 300 ? 1 : currentGlobalFrame <= 600 ? 2 : 3;
 
   return (
     <div
@@ -346,9 +400,9 @@ export default function SmoothScrollSequence() {
     >
       {/* Sticky Fullscreen Canvas Viewport */}
       <div className="sticky top-0 left-0 w-full h-screen flex justify-center items-center overflow-hidden bg-black select-none">
-        
-        {/* Subtle Ambient Radial Backlight */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.05)_0%,transparent_75%)] pointer-events-none" />
+
+        {/* Ambient Radial Backlight */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04)_0%,transparent_75%)] pointer-events-none" />
 
         {/* 1080p High-Precision Canvas */}
         <canvas
@@ -356,25 +410,26 @@ export default function SmoothScrollSequence() {
           className="w-full h-full object-contain pointer-events-none will-change-transform"
         />
 
-        {/* Master Progress Bar (Electric Lime to Pure White) */}
-        <div className="absolute top-0 left-0 w-full h-[2px] bg-white/10 z-40">
+        {/* Master Progress Bar (Hardware Accelerated ScaleX) */}
+        <div className="absolute top-0 left-0 w-full h-[2.5px] bg-white/10 z-40">
           <div
-            className="h-full bg-gradient-to-r from-white via-[#ccff00] to-[#b8e600] transition-[width] duration-75 ease-out shadow-[0_0_12px_rgba(204,255,0,0.9)]"
-            style={{ width: `${Math.round(scrollProgress * 100)}%` }}
+            ref={progressBarRef}
+            className="h-full w-full bg-gradient-to-r from-white via-[#ccff00] to-[#b8e600] origin-left shadow-[0_0_12px_rgba(204,255,0,0.9)] will-change-transform"
+            style={{ transform: 'scaleX(0)' }}
           />
         </div>
 
-        {/* Top HUD: Current Episode & Frame Indicator (Stacked neatly in top-left) */}
+        {/* Top HUD: Current Episode & Frame Indicator */}
         <div className="absolute top-4 sm:top-5 left-3 sm:left-6 z-40 pointer-events-none flex flex-col items-start gap-1.5">
           {/* Episode Badge */}
           <div className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-white/20 bg-black/85 backdrop-blur-md text-[10px] sm:text-xs font-mono tracking-widest text-slate-200 shadow-xl">
             <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] animate-pulse shadow-[0_0_8px_#ccff00]" />
-            <span>EP 0{currentEpNumber}</span>
+            <span ref={epTextRef}>EP 0{currentEpNumber}</span>
             <span className="text-white/30">•</span>
-            <span className="text-slate-400">FRAME {currentGlobalFrame.toString().padStart(3, '0')}/707</span>
+            <span ref={frameTextRef} className="text-slate-400">FRAME 001/707</span>
           </div>
 
-          {/* Chapter Subtitle (Electric Lime Compact Luxury Tag) */}
+          {/* Chapter Subtitle */}
           <div className="hidden lg:flex flex-col text-left px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-md border border-white/15 shadow-lg">
             <span className="text-[9px] uppercase tracking-[0.25em] text-[#ccff00] font-bold">
               {activeStage.title}
@@ -396,8 +451,8 @@ export default function SmoothScrollSequence() {
                   currentEpNumber === ep
                     ? 'w-7 bg-[#ccff00] shadow-[0_0_10px_rgba(204,255,0,0.85)]'
                     : currentEpNumber > ep
-                    ? 'w-3 bg-white/60'
-                    : 'w-3 bg-white/20'
+                      ? 'w-3 bg-white/60'
+                      : 'w-3 bg-white/20'
                 }`}
               />
             ))}
@@ -412,14 +467,14 @@ export default function SmoothScrollSequence() {
           </button>
         </div>
 
-        {/* Interactive Floating Product Tag in EPISODE 3 (Athlete Presentation) */}
+        {/* Interactive Floating Product Tag in EPISODE 3 */}
         <AnimatePresence>
           {showProductTag && (
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 15, scale: 0.95 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.35 }}
               className="absolute bottom-24 sm:bottom-12 right-4 sm:right-12 z-40 max-w-xs sm:max-w-sm p-4 rounded-2xl bg-black/90 border border-white/20 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.9)] text-left"
             >
               <div className="flex items-center gap-2 mb-1.5">
@@ -448,14 +503,14 @@ export default function SmoothScrollSequence() {
           )}
         </AnimatePresence>
 
-        {/* Bottom Scroll Cue (Fades out once user begins scrolling) */}
+        {/* Bottom Scroll Cue */}
         <AnimatePresence>
-          {scrollProgress < 0.015 && (
+          {showScrollPrompt && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.3 }}
               className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 flex flex-col items-center pointer-events-none text-center"
             >
               <span className="text-[11px] sm:text-xs tracking-[0.3em] uppercase text-slate-300 font-medium mb-2.5">
@@ -472,11 +527,9 @@ export default function SmoothScrollSequence() {
           )}
         </AnimatePresence>
 
-        {/* Bottom Vignette Gradient — deep black shadow keeps the video cinematic */}
+        {/* Bottom Vignette Gradient */}
         <div className="absolute bottom-0 left-0 w-full h-36 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-none" />
       </div>
     </div>
   );
 }
-
-

@@ -74,7 +74,7 @@ export default function Banner() {
   return (
     <div
       id="home"
-      className="w-full bg-white text-neutral-900 font-['Outfit'] selection:bg-[#ccff00] selection:text-black"
+      className="w-full bg-white text-neutral-900 font-['Outfit'] selection:bg-[#ccff00] selection:text-black overflow-hidden"
     >
       {/* =====================================================================
           SECTION 1 — HERO BENTO
@@ -85,11 +85,12 @@ export default function Banner() {
         {/* Lime glow hint */}
         <div className="absolute top-1/4 left-1/3 -translate-x-1/2 w-[550px] h-[350px] bg-gradient-to-br from-[#ccff00]/15 via-transparent to-transparent rounded-full blur-[140px] pointer-events-none" />
 
-        {/* Hero Headline */}
+        {/* Hero Headline with Viewport Entrance Animation */}
         <div className="relative z-10 max-w-3xl pt-4 sm:pt-10 mb-14 sm:mb-20">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.5 }}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-neutral-300 bg-neutral-100 text-xs font-bold uppercase tracking-widest text-neutral-500 mb-6"
           >
@@ -99,8 +100,9 @@ export default function Banner() {
 
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
             className="text-5xl sm:text-7xl md:text-8xl font-black tracking-tight text-neutral-950 uppercase leading-[1.02] mb-6 sm:mb-8"
           >
             Fuel the<br />
@@ -110,9 +112,10 @@ export default function Banner() {
           </motion.h1>
 
           <motion.p
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.15 }}
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
             className="text-base sm:text-lg text-neutral-500 max-w-lg mb-8 leading-relaxed font-normal"
           >
             Premium supplements, gym equipment &amp; nutrition — all in one store. Zero fillers, clinical dosages, pan-India delivery.
@@ -120,8 +123,9 @@ export default function Banner() {
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.25 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
             className="flex flex-wrap items-center gap-3.5 sm:gap-4"
           >
             {/* Primary CTA */}
@@ -149,9 +153,10 @@ export default function Banner() {
 
         {/* Three Bottom Bento Cards */}
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
+          initial={{ opacity: 0, y: 35 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.7, delay: 0.15 }}
           className="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-4 lg:gap-5 w-full mt-auto"
         >
           {/* Card 1 — 25,000+ Happy Customers */}
@@ -208,7 +213,7 @@ export default function Banner() {
                   initial={{ opacity: 0, x: 10 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.25 }}
                   className="text-xs sm:text-sm text-slate-200 leading-relaxed font-medium text-center px-1"
                 >
                   "{reviews[activeReviewIdx].quote}"
@@ -265,7 +270,13 @@ export default function Banner() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
 
             {/* Left: Heading & CTA */}
-            <div className="lg:col-span-5 flex flex-col items-start">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.7 }}
+              className="lg:col-span-5 flex flex-col items-start"
+            >
               <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-black/30 text-xs font-bold uppercase tracking-wider text-black mb-6">
                 Product Range
               </div>
@@ -287,10 +298,16 @@ export default function Banner() {
                   ↗
                 </span>
               </a>
-            </div>
+            </motion.div>
 
             {/* Right: Category Cards + Nav */}
-            <div className="lg:col-span-7 flex flex-col">
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true, amount: 0.2 }}
+              transition={{ duration: 0.7 }}
+              className="lg:col-span-7 flex flex-col"
+            >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
 
                 {/* Category Card 1 */}
@@ -373,7 +390,7 @@ export default function Banner() {
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
-            </div>
+            </motion.div>
 
           </div>
         </div>
@@ -384,7 +401,13 @@ export default function Banner() {
           SECTION 3 — DARK STORE FEATURE BENTO GRID
           ===================================================================== */}
       <section id="brands" className="w-full bg-white py-20 sm:py-28 px-4 sm:px-8">
-        <div className="max-w-7xl mx-auto bg-[#0c0c0e] rounded-[40px] sm:rounded-[48px] p-6 sm:p-10 lg:p-12 border border-neutral-800 shadow-[0_25px_60px_rgba(0,0,0,0.14)] text-white">
+        <motion.div
+          initial={{ opacity: 0, y: 35 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.8 }}
+          className="max-w-7xl mx-auto bg-[#0c0c0e] rounded-[40px] sm:rounded-[48px] p-6 sm:p-10 lg:p-12 border border-neutral-800 shadow-[0_25px_60px_rgba(0,0,0,0.14)] text-white"
+        >
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-stretch">
 
@@ -501,7 +524,6 @@ export default function Banner() {
                 className="bg-[#18181b] border border-white/5 rounded-3xl p-6 sm:p-7 flex items-center gap-5 transition-all shadow-md group cursor-pointer"
               >
                 <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-white shrink-0 group-hover:text-[#ccff00] transition-colors">
-                  {/* Energy bolt custom icon */}
                   <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
@@ -541,7 +563,7 @@ export default function Banner() {
 
           </div>
 
-        </div>
+        </motion.div>
       </section>
 
       {/* =====================================================================
@@ -555,7 +577,7 @@ export default function Banner() {
             <span className="text-[10px] font-bold tracking-[0.2em] text-neutral-400 uppercase ml-1">STORE</span>
           </div>
           <p className="text-xs text-neutral-400">
-            © {new Date().getFullYear()} Buildiff Nutrition & Fitness Store. All rights reserved.
+            © {new Date().getFullYear()} Buildiff Nutrition &amp; Fitness Store. All rights reserved.
           </p>
           <div className="flex items-center gap-6 text-xs font-semibold text-neutral-500">
             <a href="#categories" className="hover:text-black transition-colors">Products</a>
