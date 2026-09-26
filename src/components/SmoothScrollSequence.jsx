@@ -1,6 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDown, Sparkles, ShieldCheck } from 'lucide-react';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useGSAP } from '@gsap/react';
+
+gsap.registerPlugin(ScrollTrigger);
 
 /* =========================================================================
    BUILDIFF MASTER CINEMATIC TIMELINE (EP1 + EP2 + EP3)
@@ -105,13 +110,9 @@ export default function SmoothScrollSequence() {
   const progressBarRef = useRef(null);
   const frameTextRef = useRef(null);
   const epTextRef = useRef(null);
-  const requestRef = useRef(null);
-  const isLoopRunningRef = useRef(false);
-  const isVisibleRef = useRef(true);
 
-  // Animation interpolation state
+  // Animation state
   const currentFrameRef = useRef(1);
-  const targetFrameRef = useRef(1);
   const lastDrawnExactFrameRef = useRef(-1);
 
   // UI state
@@ -185,7 +186,7 @@ export default function SmoothScrollSequence() {
   }, [loadImage]);
 
   // -------------------------------------------------------------
-  // 2. 60/120 FPS GUARANTEED CANVAS RENDER LOOP
+  // 2. GUARANTEED CANVAS RENDER LOGIC
   // -------------------------------------------------------------
   const renderFrameToCanvas = useCallback((context, canvas, targetIdx) => {
     // 1. Try exact requested frame
@@ -217,68 +218,6 @@ export default function SmoothScrollSequence() {
     return false;
   }, [loadImage]);
 
-  const startRenderLoop = useCallback(() => {
-    if (isLoopRunningRef.current || !isVisibleRef.current) return;
-    isLoopRunningRef.current = true;
-
-    let lastHudUpdate = 0;
-
-    const tick = () => {
-      const canvas = canvasRef.current;
-      if (!canvas || !isVisibleRef.current) {
-        isLoopRunningRef.current = false;
-        return;
-      }
-
-      const context = canvas.getContext('2d', { alpha: false });
-      const target = targetFrameRef.current;
-      const current = currentFrameRef.current;
-      const diff = target - current;
-
-      // Ultra-smooth responsive LERP
-      if (Math.abs(diff) > 0.005) {
-        currentFrameRef.current += diff * SEQUENCE_CONFIG.lerpFactor;
-      } else {
-        currentFrameRef.current = target;
-      }
-
-      const frameToDraw = Math.max(1, Math.min(SEQUENCE_CONFIG.totalFrames, Math.round(currentFrameRef.current)));
-
-      // Render frame
-      renderFrameToCanvas(context, canvas, frameToDraw);
-
-      // Direct DOM update for frame counter
-      if (frameTextRef.current) {
-        frameTextRef.current.textContent = `FRAME ${frameToDraw.toString().padStart(3, '0')}/707`;
-      }
-
-      // Throttled UI stage updates
-      const now = performance.now();
-      if (now - lastHudUpdate > 50) {
-        const ep = frameToDraw <= 300 ? 1 : frameToDraw <= 600 ? 2 : 3;
-        setCurrentEpNumber(ep);
-        if (epTextRef.current) {
-          epTextRef.current.textContent = `EP 0${ep}`;
-        }
-
-        setActiveStage(getActiveStageInfo(frameToDraw, SEQUENCE_CONFIG.stages));
-        setShowProductTag(frameToDraw >= 620 && frameToDraw <= 707);
-        lastHudUpdate = now;
-      }
-
-      // Loop continues if target not reached OR if exact frame hasn't been painted yet
-      const isSettled = Math.abs(target - currentFrameRef.current) < 0.01 && frameToDraw === lastDrawnExactFrameRef.current;
-
-      if (!isSettled && isVisibleRef.current) {
-        requestRef.current = requestAnimationFrame(tick);
-      } else {
-        isLoopRunningRef.current = false;
-      }
-    };
-
-    requestRef.current = requestAnimationFrame(tick);
-  }, [renderFrameToCanvas]);
-
   // Setup Canvas & Initial Frame 1
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -301,88 +240,86 @@ export default function SmoothScrollSequence() {
       }
     }
 
-    return () => {
-      if (requestRef.current) cancelAnimationFrame(requestRef.current);
-    };
+    return () => {};
   }, [loadImage]);
 
   // -------------------------------------------------------------
-  // 3. INTERSECTION OBSERVER
+  // 3. GSAP SCROLLTRIGGER ANIMATION
   // -------------------------------------------------------------
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+  useGSAP(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const context = canvas.getContext('2d', { alpha: false });
+    
+    // An object holding our frame state for GSAP to animate
+    const sequenceObj = { frame: 1, lastPrefetched: 1 };
+    let lastHudUpdate = 0;
+    
+    // Define exact frame stops for the 12-13 cinematic scrolls (including doors at 68, vault at 300, etc)
+    const snapFrames = [1, 68, 120, 180, 240, 300, 360, 420, 480, 540, 600, 650, 707];
+    const snapProgress = snapFrames.map(f => (f - 1) / (SEQUENCE_CONFIG.totalFrames - 1));
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          isVisibleRef.current = entry.isIntersecting;
-          if (entry.isIntersecting) {
-            startRenderLoop();
-          } else {
-            if (requestRef.current) {
-              cancelAnimationFrame(requestRef.current);
-              isLoopRunningRef.current = false;
-            }
+    // We use a timeline to map the scroll position to the frame sequence
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: containerRef.current,
+        start: "top top",
+        end: "bottom bottom",
+        scrub: 0.1, // Reduced to 0.1: extremely tight control. It stops the millisecond you stop scrolling.
+        onUpdate: (self) => {
+          // Direct GPU Transform for master progress bar
+          if (progressBarRef.current) {
+            progressBarRef.current.style.transform = `scaleX(${self.progress})`;
           }
-        });
-      },
-      { rootMargin: '300px 0px 300px 0px' }
-    );
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [startRenderLoop]);
-
-  // -------------------------------------------------------------
-  // 4. SCROLL PROGRESSION LISTENER
-  // -------------------------------------------------------------
-  useEffect(() => {
-    let lastPrefetchedCenter = 1;
-
-    const handleScroll = () => {
-      if (!containerRef.current || !isVisibleRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const scrollDistance = -rect.top;
-      const maxScroll = rect.height - window.innerHeight;
-
-      if (maxScroll <= 0) return;
-
-      const progress = Math.max(0, Math.min(1, scrollDistance / maxScroll));
-
-      // Direct GPU Transform for master progress bar
-      if (progressBarRef.current) {
-        progressBarRef.current.style.transform = `scaleX(${progress})`;
+          
+          if (self.progress > 0.015 && showScrollPrompt) {
+            setShowScrollPrompt(false);
+          } else if (self.progress <= 0.005 && !showScrollPrompt) {
+            setShowScrollPrompt(true);
+          }
+        }
       }
+    });
 
-      if (progress > 0.015 && showScrollPrompt) {
-        setShowScrollPrompt(false);
-      } else if (progress <= 0.005 && !showScrollPrompt) {
-        setShowScrollPrompt(true);
+    // The core animation: Animate the frame property from 1 to 707 linearly over the timeline
+    tl.to(sequenceObj, {
+      frame: SEQUENCE_CONFIG.totalFrames,
+      ease: "none",
+      onUpdate: () => {
+        const frameToDraw = Math.max(1, Math.min(SEQUENCE_CONFIG.totalFrames, Math.round(sequenceObj.frame)));
+        currentFrameRef.current = sequenceObj.frame;
+        
+        // Render the new frame
+        renderFrameToCanvas(context, canvas, frameToDraw);
+
+        // Prefetching upcoming frames to prevent missing images
+        if (Math.abs(frameToDraw - sequenceObj.lastPrefetched) >= 3) {
+          prefetchWindow(frameToDraw);
+          sequenceObj.lastPrefetched = frameToDraw;
+        }
+
+        // Direct DOM update for frame counter (high performance)
+        if (frameTextRef.current) {
+          frameTextRef.current.textContent = `FRAME ${frameToDraw.toString().padStart(3, '0')}/707`;
+        }
+
+        // Throttled UI stage updates so we don't block the main thread
+        const now = performance.now();
+        if (now - lastHudUpdate > 50) {
+          const ep = frameToDraw <= 300 ? 1 : frameToDraw <= 600 ? 2 : 3;
+          setCurrentEpNumber(ep);
+          if (epTextRef.current) {
+            epTextRef.current.textContent = `EP 0${ep}`;
+          }
+
+          setActiveStage(getActiveStageInfo(frameToDraw, SEQUENCE_CONFIG.stages));
+          setShowProductTag(frameToDraw >= 620 && frameToDraw <= 707);
+          lastHudUpdate = now;
+        }
       }
+    });
 
-      // Compute frame target
-      const mappedFrame = calculateFrameForProgress(progress, SEQUENCE_CONFIG.stages);
-      targetFrameRef.current = mappedFrame;
-
-      // Prefetch upcoming frames
-      const roundedTarget = Math.round(mappedFrame);
-      if (Math.abs(roundedTarget - lastPrefetchedCenter) >= 3) {
-        prefetchWindow(roundedTarget);
-        lastPrefetchedCenter = roundedTarget;
-      }
-
-      // Wake render loop
-      startRenderLoop();
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [prefetchWindow, startRenderLoop, showScrollPrompt]);
+  }, { scope: containerRef, dependencies: [renderFrameToCanvas, prefetchWindow, showScrollPrompt] });
 
   // Fast skip to store
   const handleSkipToStore = () => {
